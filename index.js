@@ -1,11 +1,14 @@
 const express = require('express');
 const seoRoutes = require('./routes/SeoRoute');
+const cors = require('cors');
+
 // const mongoose = require('mongoose');
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
+app.use(cors({ origin: '*' }));
 
 // async function connectDB() {
 //     await mongoose.connect('mongodb://localhost:27017/seo', {
