@@ -1,12 +1,31 @@
 const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 const axios = require('axios');
+const https = require('https');
+
 require('dotenv').config();
 // const SeoModel = require('../models/SeoModel');
+const agent = new https.Agent({  
+  rejectUnauthorized: false
+});
 const isValidUrl = (url) => {
   const urlPattern = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
   return urlPattern.test(url);
 };
+
+// const init = async () => {
+//   const response = await axios.get("https://sivabharathy.in", { httpsAgent: agent });
+
+//   $ = cheerio.load(response.data);
+//   console.log('cheerio', $);
+//   $title = $('head title').text();
+//   console.log($title);
+//   // console.log('description', $desc);
+// }
+
+
+// init();
+
 const urlSeoController = {
   postSeoUrl: async (req, res) => {
     const { url } = req.body;
@@ -88,19 +107,16 @@ const urlSeoController = {
     }
 
     async function fetchSERPPreview(url) {
-      console.log('url', url);
       try {
           const key = process.env.GOOGLE_API_KEY;
-          console.log('GOOGLE_API_KEY', key);
+          const searchEngine = process.env.SEARCH_ENGINE;
           if (!key) {
               throw new Error('Google API Key is missing.');
           }
   
           const searchQuery = `site:${url}`;
-          const apiUrl = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(searchQuery)}&key=${key}`;
-          console.log('apiUrl', apiUrl);
+          const apiUrl = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(searchQuery)}&key=${key}&cx=${searchEngine}`;
           const response = await axios.get(apiUrl);
-          console.log('response', response);
           if (response.status === 200 && response.data.items && response.data.items.length > 0) {
               const firstResult = response.data.items[0];
               const title = firstResult.title;
@@ -118,7 +134,6 @@ const urlSeoController = {
               throw new Error(`Error fetching search results. Status Code: ${response.status}`);
           }
       } catch (error) {
-        console.error('Error:', error.response ? error.response.data : error.message);
         return {
             error: 'Error fetching search results.',
         };
