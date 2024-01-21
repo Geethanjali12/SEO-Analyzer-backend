@@ -1,4 +1,3 @@
-const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
 const axios = require('axios');
 const https = require('https');
@@ -8,50 +7,33 @@ require('dotenv').config();
 const agent = new https.Agent({  
   rejectUnauthorized: false
 });
+
 const isValidUrl = (url) => {
   const urlPattern = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
   return urlPattern.test(url);
 };
 
-// const init = async () => {
-//   const response = await axios.get("https://sivabharathy.in", { httpsAgent: agent });
-
-//   $ = cheerio.load(response.data);
-//   console.log('cheerio', $);
-//   $title = $('head title').text();
-//   console.log($title);
-//   // console.log('description', $desc);
-// }
-
-
-// init();
-
 const urlSeoController = {
   postSeoUrl: async (req, res) => {
     const { url } = req.body;
     try {
-    if (!url) {
+      if (!url) {
         return res.status(400).json({ 
-            status_code: 400,
-            status: false,
-            message: 'URL is required' 
+          status_code: 400,
+          status: false,
+          message: 'URL is required' 
         });
-    }
-    if (!isValidUrl(url)) {
-      return res.status(400).json({
-        status_code: 400,
-        status: false,
-        message: 'Invalid URL format',
-      });
-    }
-      const browser = await puppeteer.launch();
-      const page = await browser.newPage();
+      }
+      if (!isValidUrl(url)) {
+        return res.status(400).json({
+          status_code: 400,
+          status: false,
+          message: 'Invalid URL format',
+        });
+      }
 
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
-
-      const htmlContent = await page.content();
-
-      const $ = cheerio.load(htmlContent);
+      const response = await axios.get(url, { httpsAgent: agent });
+      const $ = cheerio.load(response.data);
 
       // Function to extract keywords from the document content
       function extractMostUsedKeywords(limit = 10) {
@@ -60,15 +42,15 @@ const urlSeoController = {
         const eliminateWords = new Set(['the', 'to', 'you', 'is', 'from', 'in', 'a', 'an', 'can', 'and', 'with', 'use', 'want', 'by', 'that']);
         const keywordMap = {};
         words.forEach(word => {
-            if (!eliminateWords.has(word)) {
-                keywordMap[word] = (keywordMap[word] || 0) + 1;
-            }
+          if (!eliminateWords.has(word)) {
+            keywordMap[word] = (keywordMap[word] || 0) + 1;
+          }
         });
         const sortedKeywords = Object.keys(keywordMap).sort((a, b) => keywordMap[b] - keywordMap[a]);
         const mostUsedKeywords = sortedKeywords.slice(0, limit);
         return mostUsedKeywords.join(', ');
-    }
-    
+      }
+
       // Function to extract image alt attributes
       function getImageAltAttributes() {
         const images = $('img');
@@ -86,59 +68,59 @@ const urlSeoController = {
 
       async function checkRobotsTxt() {
         try {
-            const response = await axios.get(`${url}/robots.txt`);
-            return response.status === 200;
+          const response = await axios.get(`${url}/robots.txt`);
+          return response.status === 200;
         } catch (error) {
-            return false;
+          return false;
         }
-    }
+      }
 
-    async function checkRobotsTxtForXmlSitemap() {
-      try {
+      async function checkRobotsTxtForXmlSitemap() {
+        try {
           const response = await axios.get(`${url}/robots.txt`);
           if (response.status === 200) {
-              const lines = response.data.split('\n');
-              return lines.some(line => line.trim().toLowerCase().startsWith('sitemap') && line.includes('.xml'));
+            const lines = response.data.split('\n');
+            return lines.some(line => line.trim().toLowerCase().startsWith('sitemap') && line.includes('.xml'));
           }
           return false;
-      } catch (error) {
+        } catch (error) {
           return false;
+        }
       }
-    }
 
-    async function fetchSERPPreview(url) {
-      try {
+      async function fetchSERPPreview(url) {
+        try {
           const key = process.env.GOOGLE_API_KEY;
           const searchEngine = process.env.SEARCH_ENGINE;
           if (!key) {
-              throw new Error('Google API Key is missing.');
+            throw new Error('Google API Key is missing.');
           }
-  
+
           const searchQuery = `site:${url}`;
           const apiUrl = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(searchQuery)}&key=${key}&cx=${searchEngine}`;
           const response = await axios.get(apiUrl);
           if (response.status === 200 && response.data.items && response.data.items.length > 0) {
-              const firstResult = response.data.items[0];
-              const title = firstResult.title;
-              const snippet = firstResult.snippet;
-  
-              return {
-                  title,
-                  snippet,
-              };
+            const firstResult = response.data.items[0];
+            const title = firstResult.title;
+            const snippet = firstResult.snippet;
+
+            return {
+              title,
+              snippet,
+            };
           } else if (response.status === 200) {
-              return {
-                  error: 'No search results found.',
-              };
+            return {
+              error: 'No search results found.',
+            };
           } else {
-              throw new Error(`Error fetching search results. Status Code: ${response.status}`);
+            throw new Error(`Error fetching search results. Status Code: ${response.status}`);
           }
-      } catch (error) {
-        return {
+        } catch (error) {
+          return {
             error: 'Error fetching search results.',
-        };
-    }
-  }
+          };
+        }
+      }
 
       const seoResult = {
         url,
@@ -191,28 +173,21 @@ const urlSeoController = {
         serpPreview: await fetchSERPPreview(url),
         created_at: new Date(),
       };
-      // await SeoModel.create(seoResult);
-      await browser.close();
+
       res.json({
         status_code: 200,
         status: true,
         message: 'Details Retrieved successfully',
         data: seoResult,
       });
-      // return {
-      //   status_code: 200,
-      //   status: true,
-      //   message: 'Details Retrieved successfully',
-      //   data: seoResult,
-      // };
-      } catch (error) {
-        const statusCode = error.status || 500;
-        const errorMessage = error.message || 'Internal Server Error';
-        return {
-          status_code: statusCode,
-          status: false,
-          message: errorMessage,
-        };
+    } catch (error) {
+      const statusCode = error.status || 500;
+      const errorMessage = error.message || 'Internal Server Error';
+      return res.status(statusCode).json({
+        status_code: statusCode,
+        status: false,
+        message: errorMessage,
+      });
     }
   },
 };
